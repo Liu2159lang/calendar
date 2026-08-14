@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>我的日历</title>
+<style>
+  :root {
+    --bg: #f5f6fa;
+    --card: #ffffff;
+    --text: #2c2e3a;
+    --muted: #9aa0b0;
+    --accent: #4f7cff;
+    --accent-soft: #e8efff;
+    --today: #ff7043;
+    --red: #e8a200;
+    --red-soft: #fff4cc;
+    --line: #eceef3;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  body {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 16px;
+  }
+  .calendar {
+    width: 100%;
+    max-width: 480px;
+    background: var(--card);
+    border-radius: 20px;
+    box-shadow: 0 8px 30px rgba(40, 50, 90, 0.08);
+    overflow: hidden;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 18px 10px;
+  }
+  .nav-btn {
+    width: 40px; height: 40px;
+    border: none;
+    border-radius: 12px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 20px;
+    cursor: pointer;
+    transition: transform .1s ease, background .15s ease;
+  }
+  .nav-btn:active { transform: scale(0.92); }
+  .title {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: .5px;
+  }
+  .weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    padding: 6px 10px 0;
+  }
+  .weekdays span {
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+    padding: 8px 0;
+    font-weight: 600;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    padding: 8px 10px 18px;
+  }
+  .cell {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .cell.empty { visibility: hidden; }
+  .num {
+    width: 72%;
+    height: 72%;
+    max-width: 46px;
+    max-height: 46px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(15px, 4.5vw, 19px);
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    user-select: none;
+    border: 2px solid transparent;
+    transition: transform .12s ease, background .15s ease, border-color .15s ease, color .15s ease;
+  }
+  .lunar {
+    font-size: clamp(9px, 2.6vw, 11px);
+    color: var(--muted);
+    margin-top: 3px;
+    line-height: 1;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .num:active { transform: scale(0.88); }
+  /* 今天：只变数字颜色，不显示圈圈 */
+  .num.today {
+    color: var(--today);
+    font-weight: 700;
+  }
+  /* 圈选状态：蓝色圆环（点击1次） */
+  .num.blue {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(79, 124, 255, 0.15);
+  }
+  /* 圈选状态：黄色圆环（点击2次） */
+  .num.red {
+    border-color: var(--red);
+    background: var(--red-soft);
+    color: var(--red);
+    box-shadow: 0 0 0 3px rgba(232, 162, 0, 0.18);
+  }
+  /* 今天被圈选时，数字仍保持橙色 */
+  .num.today.blue, .num.today.red {
+    color: var(--today);
+  }
+  .footer {
+    padding: 0 18px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .hint { font-size: 12px; color: var(--muted); }
+  .clear-btn {
+    border: none;
+    background: transparent;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 10px;
+  }
+  .clear-btn:active { background: var(--accent-soft); }
+</style>
+</head>
+<body>
+  <div class="calendar">
+    <div class="header">
+      <button class="nav-btn" id="prev" aria-label="上个月">‹</button>
+      <div class="title" id="title">2026年8月</div>
+      <button class="nav-btn" id="next" aria-label="下个月">›</button>
+    </div>
+    <div class="weekdays">
+      <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="footer">
+      <span class="hint">点1次蓝圈 · 点2次红圈 · 再点取消</span>
+      <button class="clear-btn" id="clear">清除圈选</button>
+    </div>
+  </div>
+
+<script>
+  const grid = document.getElementById('grid');
+  const title = document.getElementById('title');
+  const STORAGE_KEY = 'calendar-marks-v2';
+
+  // 读取已保存的标记状态 { "2026-8-14": 1(蓝) | 2(红) }
+  let marks = {};
+  try { marks = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch (e) { marks = {}; }
+
+  const today = new Date();
+  let viewYear = today.getFullYear();
+  let viewMonth = today.getMonth(); // 0-11
+
+  function save() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(marks)); } catch (e) {}
+  }
+
+  // ===== 农历转换 =====
+  var lunarInfo=[0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,
+  0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977,
+  0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970,
+  0x06566,0x0d4a0,0x0ea50,0x06e95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950,
+  0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557,
+  0x06ca0,0x0b550,0x15355,0x04da0,0x0a5b0,0x14573,0x052b0,0x0a9a8,0x0e950,0x06aa0,
+  0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0,
+  0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b6a0,0x195a6,
+  0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570,
+  0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x055c0,0x0ab60,0x096d5,0x092e0,
+  0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5,
+  0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930,
+  0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530,
+  0x05aa0,0x076a3,0x096d0,0x04afb,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45,
+  0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0];
+  function lYearDays(y){var s=348;for(var i=0x8000;i>0x8;i>>=1)s+=(lunarInfo[y-1900]&i)?1:0;return s+leapDays(y);}
+  function leapDays(y){return leapMonth(y)?((lunarInfo[y-1900]&0x10000)?30:29):0;}
+  function leapMonth(y){return lunarInfo[y-1900]&0xf;}
+  function monthDays(y,m){return((lunarInfo[y-1900]&(0x10000>>m))?30:29);}
+  function solar2lunar(y,m,d){
+    var baseDate=new Date(1900,0,31),objDate=new Date(y,m-1,d);
+    var offset=Math.round((objDate-baseDate)/86400000);
+    var temp=0,i;
+    for(i=1900;i<2101&&offset>0;i++){temp=lYearDays(i);offset-=temp;}
+    if(offset<0){offset+=temp;i--;}
+    var year=i,leap=leapMonth(i),isLeap=false,m2;
+    for(m2=1;m2<13&&offset>0;m2++){
+      if(leap>0&&m2===(leap+1)&&!isLeap){--m2;isLeap=true;temp=leapDays(year);}
+      else{temp=monthDays(year,m2);}
+      if(isLeap&&m2===(leap+1))isLeap=false;
+      offset-=temp;
+    }
+    if(offset===0&&leap>0&&m2===leap+1){if(isLeap){isLeap=false;}else{isLeap=true;--m2;}}
+    if(offset<0){offset+=temp;--m2;}
+    return {year:year,month:m2,day:offset+1,isLeap:isLeap};
+  }
+  var monthCN=['正','二','三','四','五','六','七','八','九','十','冬','腊'];
+  var dayCN1=['日','一','二','三','四','五','六','七','八','九','十'];
+  var dayCN2=['初','十','廿','卅'];
+  function dayCN(day){
+    if(day===10)return '初十';
+    if(day===20)return '二十';
+    if(day===30)return '三十';
+    var t=Math.floor(day/10),o=day%10;
+    if(day<10)return '初'+dayCN1[o];
+    return dayCN2[t]+dayCN1[o];
+  }
+  function lunarText(y,m,d){
+    var l=solar2lunar(y,m,d);
+    if(l.day===1)return (l.isLeap?'闰':'')+monthCN[l.month-1]+'月';
+    return dayCN(l.day);
+  }
+
+  function render() {
+    grid.innerHTML = '';
+    title.textContent = viewYear + '年' + (viewMonth + 1) + '月';
+
+    const firstDay = new Date(viewYear, viewMonth, 1).getDay(); // 0=周日
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+    // 前置空格
+    for (let i = 0; i < firstDay; i++) {
+      const empty = document.createElement('div');
+      empty.className = 'cell empty';
+      grid.appendChild(empty);
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      const num = document.createElement('div');
+      num.className = 'num';
+      num.textContent = d;
+
+      const key = viewYear + '-' + (viewMonth + 1) + '-' + d;
+      if (marks[key] === 1) num.classList.add('blue');
+      else if (marks[key] === 2) num.classList.add('red');
+      if (viewYear === today.getFullYear() && viewMonth === today.getMonth() && d === today.getDate()) {
+        num.classList.add('today');
+      }
+
+      num.addEventListener('click', () => {
+        if (marks[key] === 2) {
+          delete marks[key];
+          num.classList.remove('red');
+        } else if (marks[key] === 1) {
+          marks[key] = 2;
+          num.classList.remove('blue');
+          num.classList.add('red');
+        } else {
+          marks[key] = 1;
+          num.classList.add('blue');
+        }
+        save();
+      });
+
+      const lunar = document.createElement('div');
+      lunar.className = 'lunar';
+      lunar.textContent = lunarText(viewYear, viewMonth + 1, d);
+
+      cell.appendChild(num);
+      cell.appendChild(lunar);
+      grid.appendChild(cell);
+    }
+  }
+
+  document.getElementById('prev').addEventListener('click', () => {
+    viewMonth--;
+    if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+    render();
+  });
+  document.getElementById('next').addEventListener('click', () => {
+    viewMonth++;
+    if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+    render();
+  });
+  document.getElementById('clear').addEventListener('click', () => {
+    marks = {};
+    save();
+    render();
+  });
+
+  render();
+</script>
+</body>
+</html>
