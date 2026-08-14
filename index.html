@@ -144,17 +144,6 @@
     align-items: center;
   }
   .hint { font-size: 12px; color: var(--muted); }
-  .clear-btn {
-    border: none;
-    background: transparent;
-    color: var(--accent);
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    padding: 6px 10px;
-    border-radius: 10px;
-  }
-  .clear-btn:active { background: var(--accent-soft); }
 </style>
 </head>
 <body>
@@ -169,8 +158,7 @@
     </div>
     <div class="grid" id="grid"></div>
     <div class="footer">
-      <span class="hint">点1次蓝圈 · 点2次红圈 · 再点取消</span>
-      <button class="clear-btn" id="clear">清除圈选</button>
+      <span class="hint">点1次蓝圈 · 点2次黄圈 · 再点取消</span>
     </div>
   </div>
 
@@ -179,7 +167,7 @@
   const title = document.getElementById('title');
   const STORAGE_KEY = 'calendar-marks-v2';
 
-  // 读取已保存的标记状态 { "2026-8-14": 1(蓝) | 2(红) }
+  // 读取已保存的标记状态 { "2026-8-14": 1(蓝) | 2(黄) }
   let marks = {};
   try { marks = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch (e) { marks = {}; }
 
@@ -306,11 +294,6 @@
   document.getElementById('next').addEventListener('click', () => {
     viewMonth++;
     if (viewMonth > 11) { viewMonth = 0; viewYear++; }
-    render();
-  });
-  document.getElementById('clear').addEventListener('click', () => {
-    marks = {};
-    save();
     render();
   });
 
